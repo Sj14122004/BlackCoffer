@@ -16,15 +16,20 @@ const buildQuery = (filters = {}) => {
 
   const query = {};
 
-  if (country) query.country = country;
-  if (topic) query.topic = topic;
-  if (sector) query.sector = sector;
-  if (region) query.region = region;
-  if (pestle) query.pestle = pestle;
-  if (source) query.source = source;
-  if (swot) query.swot = swot;
-  if (city) query.city = city;
-  if (end_year) query.end_year = end_year;
+  const exactMatch = (value) => ({
+  $regex: `^${String(value).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+  $options: "i",
+  });
+
+  if (country) query.country = exactMatch(country);
+  if (topic) query.topic = exactMatch(topic);
+  if (sector) query.sector = exactMatch(sector);
+  if (region) query.region = exactMatch(region);
+  if (pestle) query.pestle = exactMatch(pestle);
+  if (source) query.source = exactMatch(source);
+  if (swot) query.swot = exactMatch(swot);
+  if (city) query.city = exactMatch(city);
+  if (end_year) query.end_year = exactMatch(end_year);
 
   if (search && search.trim()) {
     const searchRegex = {
@@ -43,6 +48,10 @@ const buildQuery = (filters = {}) => {
       { city: searchRegex },
       { title: searchRegex },
       { insight: searchRegex },
+      { end_year: searchRegex },
+      { start_year: searchRegex },
+      { added: searchRegex },
+      { published: searchRegex },
     ];
   }
 

@@ -40,6 +40,7 @@ const MainLayout = ({ children }) => {
         <main className="flex-grow-1 overflow-hidden">
           {React.cloneElement(children, {
             filters,
+            setFilters,
             search,
           })}
         </main>

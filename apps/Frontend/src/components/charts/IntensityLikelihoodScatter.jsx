@@ -8,6 +8,7 @@ const IntensityLikelihoodScatter = ({
 }) => {
   const svgRef = useRef(null);
   const [data, setData] = useState([]);
+  const [containerWidth, setContainerWidth] = useState(1200);
 
   useEffect(() => {
     const fetchScatterData = async () => {
@@ -30,10 +31,9 @@ const IntensityLikelihoodScatter = ({
         setData(formattedData);
       } catch (error) {
         console.error(
-          "Failed to fetch intensity likelihood data:",
+          "Failed to fetch scatter data:",
           error
         );
-
         setData([]);
       }
     };
@@ -46,14 +46,17 @@ const IntensityLikelihoodScatter = ({
       return;
     }
 
-    const width = 1100;
-    const height = 430;
+    const isMobile = containerWidth < 480;
+    const isTablet = containerWidth < 768;
+
+    const width = containerWidth - 20;
+    const height = isMobile ? 350 : isTablet ? 400 : 450;
 
     const margin = {
-      top: 30,
-      right: 60,
-      bottom: 75,
-      left: 80,
+      top: isMobile ? 20 : isTablet ? 30 : 40,
+      right: isMobile ? 20 : isTablet ? 30 : 40,
+      bottom: isMobile ? 50 : isTablet ? 70 : 80,
+      left: isMobile ? 60 : isTablet ? 70 : 80,
     };
 
     d3.select(svgRef.current)
@@ -66,6 +69,7 @@ const IntensityLikelihoodScatter = ({
         "viewBox",
         `0 0 ${width} ${height}`
       )
+      .attr("preserveAspectRatio", "xMidYMid meet")
       .attr("width", "100%")
       .attr("height", height);
 
@@ -106,157 +110,238 @@ const IntensityLikelihoodScatter = ({
       .nice()
       .range([chartHeight, 0]);
 
+    // Color scale for intensity
+    const colorScale = d3
+      .scaleLinear()
+      .domain([
+        0,
+        d3.max(
+          data,
+          (item) => item.intensity
+        ) || 1,
+      ])
+      .range(["#c4b5fd", "#7c3aed"]);
+
+    // Grid lines
     chart
+      .append("g")
+      .attr("class", "grid")
+      .attr("opacity", 0.08)
+      .call(
+        d3
+          .axisLeft(y)
+          .tickSize(-chartWidth)
+          .tickFormat("")
+      )
+      .selectAll(".domain")
+      .remove();
+
+    // X-axis
+    const xAxisGroup = chart
       .append("g")
       .attr(
         "transform",
         `translate(0,${chartHeight})`
       )
       .call(d3.axisBottom(x))
-      .selectAll("text")
-      .style("font-size", "16px");
+      .attr("class", "x-axis");
 
+    xAxisGroup
+      .selectAll("text")
+      .style("font-size", isMobile ? "25px" : "25px")
+      .style("fill", "var(--text-secondary, #6b7280)");
+
+    xAxisGroup.selectAll(".domain").remove();
+
+    // Y-axis
     chart
       .append("g")
       .call(d3.axisLeft(y))
       .selectAll("text")
-      .style("font-size", "16px");
+      .style("font-size", isMobile ? "25px" : "25px")
+      .style("fill", "var(--text-secondary, #6b7280)");
 
-    chart
-      .append("text")
-      .attr("x", chartWidth / 2)
-      .attr("y", chartHeight + 60)
-      .attr("text-anchor", "middle")
-      .style("font-size", "20px")
-      .text("Intensity");
+    chart.selectAll(".y-axis .domain").remove();
 
-    chart
-      .append("text")
-      .attr(
-        "transform",
-        "rotate(-90)"
-      )
-      .attr(
-        "x",
-        -chartHeight / 2
-      )
-      .attr("y", -50)
-      .attr("text-anchor", "middle")
-      .style("font-size", "20px")
-      .text("Likelihood");
+    // X-axis label
+    if (!isMobile) {
+      chart
+        .append("text")
+        .attr("x", chartWidth / 2)
+        .attr("y", chartHeight + 70)
+        .attr("text-anchor", "middle")
+        .style("font-size", "25px")
+        .style("font-weight", "500")
+        .style("fill", "var(--text-primary, #1f2937)")
+        .text("Intensity");
+    }
 
+    // Y-axis label
+    if (!isMobile) {
+      chart
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -chartHeight / 2)
+        .attr("y", -60)
+        .attr("text-anchor", "middle")
+        .style("font-size", "25px")
+        .style("font-weight", "500")
+        .style("fill", "var(--text-primary, #1f2937)")
+        .text("Likelihood");
+    }
+
+    // Tooltip
     const tooltip = d3
       .select("body")
       .append("div")
       .style("position", "fixed")
-      .style("background", "white")
-      .style("border", "1px solid #dee2e6")
-      .style("border-radius", "6px")
-      .style("padding", "10px 12px")
-      .style("font-size", "14px")
+      .style("background", "var(--surface-2, white)")
+      .style("border", "1px solid var(--border, #e5e7eb)")
+      .style("border-radius", "8px")
+      .style("padding", "12px 14px")
+      .style("font-size", "25px")
       .style(
         "box-shadow",
-        "0 4px 12px rgba(0,0,0,0.15)"
+        "0 4px 12px rgba(0,0,0,0.1)"
       )
       .style("pointer-events", "none")
       .style("opacity", 0)
-      .style("z-index", 1000);
+      .style("z-index", 1000)
+      .style("max-width", "250px");
 
+    // Points
     chart
       .selectAll(".point")
       .data(data)
       .enter()
       .append("circle")
       .attr("class", "point")
-      .attr(
-        "cx",
-        (item) => x(item.intensity)
+      .attr("cx", (item) => x(item.intensity))
+      .attr("cy", (item) => y(item.likelihood))
+      .attr("r", isMobile ? 4 : 6)
+      .attr("fill", (item) =>
+        colorScale(item.intensity)
       )
-      .attr(
-        "cy",
-        (item) => y(item.likelihood)
-      )
-      .attr("r", 7)
-      .attr("fill", "#0d6efd")
+      .attr("opacity", 0.7)
       .style("cursor", "pointer")
-      .on(
-        "mouseover",
-        function (event, item) {
-          d3.select(this).attr("r", 9);
+      .on("mouseover", function (event, item) {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", isMobile ? 7 : 10)
+          .attr("opacity", 1)
+          .attr(
+            "filter",
+            "drop-shadow(0 4px 12px rgba(124, 58, 237, 0.35))"
+          );
 
-          tooltip
-            .style("opacity", 1)
-            .html(`
-              <div class="fw-bold mb-1">
-                ${item.title || "Insight"}
-              </div>
+        tooltip
+          .style("opacity", 1)
+          .html(`
+            <div style="font-weight: 600; color: #7c3aed; margin-bottom: 8px;">
+              ${item.title || "Insight"}
+            </div>
+            ${
+              item.country
+                ? `<div><strong>Country:</strong> ${item.country}</div>`
+                : ""
+            }
+            ${
+              item.topic
+                ? `<div><strong>Topic:</strong> ${item.topic}</div>`
+                : ""
+            }
+            <div><strong>Intensity:</strong> ${item.intensity}</div>
+            <div><strong>Likelihood:</strong> ${item.likelihood}</div>
+            ${
+              item.relevance !== undefined
+                ? `<div><strong>Relevance:</strong> ${item.relevance}</div>`
+                : ""
+            }
+          `);
+      })
+      .on("mousemove", function (event) {
+        tooltip
+          .style(
+            "left",
+            `${Math.min(event.clientX + 12, window.innerWidth - 280)}px`
+          )
+          .style(
+            "top",
+            `${Math.min(event.clientY + 12, window.innerHeight - 200)}px`
+          );
+      })
+      .on("mouseout", function () {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", isMobile ? 4 : 6)
+          .attr("opacity", 0.7)
+          .attr("filter", "none");
 
-              <div>
-                <strong>Country:</strong>
-                ${item.country || "-"}
-              </div>
-
-              <div>
-                <strong>Topic:</strong>
-                ${item.topic || "-"}
-              </div>
-
-              <div>
-                <strong>Intensity:</strong>
-                ${item.intensity}
-              </div>
-
-              <div>
-                <strong>Likelihood:</strong>
-                ${item.likelihood}
-              </div>
-
-              <div>
-                <strong>Relevance:</strong>
-                ${item.relevance ?? "-"}
-              </div>
-            `);
-        }
-      )
-      .on(
-        "mousemove",
-        function (event) {
-          tooltip
-            .style(
-              "left",
-              `${event.clientX + 15}px`
-            )
-            .style(
-              "top",
-              `${event.clientY + 15}px`
-            );
-        }
-      )
-      .on(
-        "mouseout",
-        function () {
-          d3.select(this).attr("r", 7);
-          tooltip.style("opacity", 0);
-        }
-      );
+        tooltip.style("opacity", 0);
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(800)
+      .ease(d3.easeQuadInOut)
+      .delay((_, i) => i * 30)
+      .style("opacity", 0.7);
 
     return () => {
       tooltip.remove();
     };
-  }, [data]);
+  }, [data, containerWidth]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (svgRef.current?.parentElement) {
+        setContainerWidth(
+          svgRef.current.parentElement.clientWidth
+        );
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(
+      handleResize
+    );
+    if (svgRef.current?.parentElement) {
+      resizeObserver.observe(svgRef.current.parentElement);
+    }
+
+    return () => resizeObserver.disconnect();
+  }, []);
 
   if (data.length === 0) {
     return (
       <div className="d-flex align-items-center justify-content-center py-5">
         <p className="text-secondary mb-0">
-          No intensity and likelihood data available for the selected filters.
+          No scatter data available
         </p>
       </div>
     );
   }
 
   return (
-    <div className="w-100 overflow-auto">
+    <div
+      style={{
+        padding: "20px",
+        background: "var(--surface-2, #ffffff)",
+        borderRadius: "12px",
+        border: "1px solid var(--border, #e5e7eb)",
+        minHeight: "400px",
+      }}
+    >
+      <h3
+        style={{
+          marginBottom: "20px",
+          fontSize: "16px",
+          fontWeight: "600",
+          color: "var(--text-primary, #1f2937)",
+        }}
+      >
+        Intensity vs Likelihood
+      </h3>
       <svg ref={svgRef}></svg>
     </div>
   );
